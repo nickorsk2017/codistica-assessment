@@ -1,0 +1,17 @@
+{
+    "name": "codistica-assessment",
+    "description": "The assessment for Codistica",
+    "author": "Nikolai Stepanov",
+    "private": true,
+    "version": "0.0.1",
+    "type": "module",
+    "license": "MIT",
+    "readme": "",
+    "scripts": {
+        "start": "ts-node --script-mode index.ts"
+    },
+    "dependencies": {
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.3"
+    }
+}
