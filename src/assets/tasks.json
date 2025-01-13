@@ -1,0 +1,26 @@
+{
+    "taskA": {
+        "execute": "async () => { console.log(\"Execute taskA\") }",
+        "dependencies": ["taskB", "taskC"]
+    },
+    "taskB": {
+        "execute": "async () => { console.log(\"Execute taskB\") }",
+        "dependencies": ["taskD"]
+    },
+    "taskC": {
+        "execute": "async () => { console.log(\"Execute taskC\") }",
+        "dependencies": ["taskE", "taskG"]
+    },
+    "taskD": {
+        "execute": "async () => { console.log(\"Execute taskD\") }",
+        "dependencies": ["taskD"]
+    },
+    "taskE": {
+        "execute": "async () => { console.log(\"Execute taskE\") }",
+        "dependencies": []
+    },
+    "taskG": {
+        "execute": "async () => { console.log(\"Execute taskG\") }",
+        "dependencies": []
+    }
+}

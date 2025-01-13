@@ -3,15 +3,25 @@
     "description": "The assessment for Codistica",
     "author": "Nikolai Stepanov",
     "private": true,
-    "version": "0.0.1",
-    "type": "module",
+    "version": "0.0.2",
     "license": "MIT",
+    "main": "index.js",
     "readme": "",
     "scripts": {
-        "start": "ts-node --script-mode index.ts"
+        "start": "nodemon src/index.ts"
     },
     "dependencies": {
+        "module-alias": "^2.2.3"
+    },
+    "devDependencies": {
+        "@types/module-alias": "^2.0.4",
+        "copyfiles": "^2.4.1",
+        "dotenv": "^16.4.7",
+        "nodemon": "^3.1.9",
         "ts-node": "^10.9.2",
         "typescript": "^5.7.3"
+    },
+    "_moduleAliases": {
+        "@modules": "./dist/modules"
     }
 }

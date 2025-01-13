@@ -1,0 +1,6 @@
+{
+    "watch": ["src"],
+    "ext": ".ts,.js,.json",
+    "ignore": [],
+    "exec": "rimraf ./dist && copyfiles --flat src/assets/* ./src/assets ./dist/assets && tsc && node -r dotenv/config ./dist/index.js"
+}
