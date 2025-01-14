@@ -43,7 +43,7 @@ export class TasksService {
         try{
             const isAsyncFn = task.execute.indexOf('await ') > 1;
 
-            const result = isAsyncFn ? await eval(`async () => {${task.execute}}`): await eval(task.execute);
+            const result = isAsyncFn ? await eval(`async () => {${task.execute}}`)(): await eval(task.execute);
 
             if(result){
                 console.log(result, 'result')
@@ -111,6 +111,7 @@ export class TasksService {
         this.logs.log(JSON.stringify(this.completedTasks), 'green');
     }
 
+    // todo: try convert to asynchronous tasks
     async runAllTasks(){
         this.logs.log("STAGE: Run all tasks \n\n", 'cyan');
 
