@@ -15,10 +15,31 @@ type TypeColors = typeof colors;
 
 export class LogsModule  {
 	colors = colors;
+	disable = false;
 
-	log(text: string, color: keyof TypeColors = "black" ){
-		const colorCode = this.colors[color] || this.colors.black;
-		const reset = this.colors.reset;
-		console.log(colorCode, `${text} ${reset}`);
+	constructor(disable?: boolean){
+		this.disable = !!disable;
+	}
+
+	log(text: string, color: keyof TypeColors = "black" ): string | null {
+		if(!this.disable){
+			const colorCode = this.colors[color] || this.colors.black;
+			const reset = this.colors.reset;
+			const log = `${text} ${reset}`;
+			console.log(colorCode, log);
+
+			return log
+		}
+
+		return null
+	}
+
+	sayHello(){
+		this.log("\n\n _____________________________________________\n", 'white');
+		this.log("AUTHOR: NIKOLAI STEPANOV", 'white');
+        this.log("linkedIn: https://www.linkedin.com/in/nickot/", "blue");
+		this.log("\n\n This application simulates backend service with DB", 'white');
+		this.log("\n\n See the readme file for details", 'white');
+		this.log("_______________________________________________\n\n", 'white');
 	}
 }

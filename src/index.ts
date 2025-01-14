@@ -1,14 +1,16 @@
 import 'module-alias/register';
 import {MainModule} from "@modules/main/main.module";
+import {LogsModule} from '@modules/logs/logs.module'
 
 
 (() => {
     function init(){   
         console.clear();
-        console.log("\x1b[37m","AUTHOR: NIKOLAI STEPANOV");
-        console.log("\x1b[36m","https://www.linkedin.com/in/nickot/ \n\n");
 
-        console.log("\x1b[35m","STAGE: Initializing the application \x1b[0m");
+        const logs = new LogsModule();
+        logs.sayHello();
+        logs.log("STAGE: Initializing the application", "magenta");
+
         const app = new MainModule();  
         app.run();
     }

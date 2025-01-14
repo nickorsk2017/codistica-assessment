@@ -2,23 +2,23 @@ import {DBModule} from '@modules/db/db.module';
 import {LogsModule} from '@modules/logs/logs.module';
 
 export class TasksService {
-    logs: LogsModule;
-    constructor(){
-        this.logs = new LogsModule();
+    private logs: LogsModule;
+    constructor(disableLogs?: boolean){
+        this.logs = new LogsModule(disableLogs);
     }
 
     dbConnection: DBModule;
 
     tasks: Entity.Tasks = {};
-    stack: Entity.Task[] = [];
+    private stack: Entity.Task[] = [];
     completedTasks: Array<string> = [];
     inProgressTasks: Array<string> = [];
     wrongExecTasks: Array<string> = [];
     circularTasks: Array<string> = [];
-    promises: Array<Promise<boolean | object>> = [];
+    private promises: Array<Promise<boolean | object>> = [];
 
     // Pushing tasks to stack or execution its if doesn't have dependencies
-    fillStack = () => {
+    private fillStack = () => {
         const tasks = this.tasks;
 
         for(let key in tasks){
@@ -33,7 +33,7 @@ export class TasksService {
     }
 
     // deleting task from progress list
-    deleteTaskFromProgress = (taskId: string) => {
+    private deleteTaskFromProgress = (taskId: string) => {
         this.inProgressTasks = this.inProgressTasks.filter((id) => {
             return id !== taskId;
         })
@@ -41,20 +41,24 @@ export class TasksService {
 
 
     // completing task
-    completeTask = (task) => {
+    private completeTask = (task) => {
         this.completedTasks.push(task.id);
         this.deleteTaskFromProgress(task.id);
     }
 
 
     // Pushing task to list tasks with bugs
-    handlerWrongTask = (taskId: string) => {
+    private handlerWrongTask = (taskId: string) => {
         this.wrongExecTasks.push(taskId);
         // Deleting task from proggess list
         this.deleteTaskFromProgress(taskId);
 
         // Flagging child tasks as uncompleted
         this.stack = this.stack.filter((task) => {
+            if(task.id === taskId){
+                return false
+            }
+
             const dependencies = task.dependencies;
             const hasDependence = !!dependencies.includes(taskId);
 
@@ -67,7 +71,7 @@ export class TasksService {
     }
 
     // Executing task
-    execTask = (task: Entity.Task) => {
+    private execTask = (task: Entity.Task) => {
         this.inProgressTasks.push(task.id);
 
         // Create promise
@@ -119,7 +123,7 @@ export class TasksService {
     }
 
     // Execution asynchronous tasks and clear it
-    exePromises = async () => {
+    private exePromises = async () => {
         if(!!this.promises.length){
            await Promise.all(this.promises);
            this.promises = [];
@@ -127,14 +131,14 @@ export class TasksService {
     }
 
     // Delete a task from stack
-    deleteTaskFromStack = (taskId: string) => {
+    private deleteTaskFromStack = (taskId: string) => {
         this.stack = this.stack.filter((task) => {
             return task.id !== taskId
         });
     }
 
     // Log circular tasks
-    addToCircularTasks = (taskId: string) => {
+    private addToCircularTasks = (taskId: string) => {
         if(!this.circularTasks.includes(taskId)){
             this.deleteTaskFromStack(taskId)
             this.circularTasks.push(taskId);
@@ -142,7 +146,7 @@ export class TasksService {
     }
 
     // Handler tasks with circular dependencies
-    handlerCircularTasks = (task: Entity.Task) => {
+    private handlerCircularTasks = (task: Entity.Task) => {
         const dependencies = task.dependencies;
         let hasCircular = false;
 
@@ -183,7 +187,7 @@ export class TasksService {
     // The loop tasks works independently of tasks execution.
     // Look to taskB in JSON file, this task has delay and is added to completed list at the end but before parent task.
     //  */
-    loopTasks = async () => {
+    private loopTasks = async () => {
             // Pushing tasks without dependencies
             this.fillStack();
             
@@ -192,11 +196,11 @@ export class TasksService {
                 If task has syntax error in 'execute' field it will be ignored.
             */
             while((this.stack.length || this.inProgressTasks.length)){
-    
                 //Get first task with completed dependencies from stack
                 const nextTask = this.stack.find((task, index) => {
                     // skip if the task in progress or completed 
                     if(this.inProgressTasks.includes(task.id) || this.completedTasks.includes(task.id)){
+                        this.deleteTaskFromStack(task.id)
                         return false
                     }
 
@@ -213,7 +217,6 @@ export class TasksService {
                     
                     return allChildTaskDone;
                 });
-
     
                 // If at least one task is on the stack
                 // delete this task from stack and try execute it.
@@ -244,22 +247,30 @@ export class TasksService {
     addTask = async (task: Entity.Task) => {
         try {
             const tasksORM = this.dbConnection.db.getEntity('tasks');
-            await tasksORM.write<Entity.Task>(task);
+            const tasks = await tasksORM.write<Entity.Task>(task);
+
+            this.tasks = tasks;
         } catch(err){
             this.logs.log("ERROR ", "red");
             this.logs.log(err);
         }
     }
 
+    // return DB data to initial state
+    rallbackToMock = async () => {
+        const tasksORM = this.dbConnection.db.getEntity('tasks');
+        await tasksORM.rallbackToMock();
+    }
+
     init = async () => {
-        // Connection to DB and get list tasks
+        // Creating connection to DB
         this.dbConnection = new DBModule('JSON');
     }
 
     /*
     Log result after execution 
     */
-    logResults = () => {
+    private logResults = () => {
 
         this.logs.log("\nSTAGE: TASKS PROCESSED", "magenta");
 
@@ -273,7 +284,9 @@ export class TasksService {
             this.logs.log(JSON.stringify(this.wrongExecTasks), 'red');
         }
 
-        this.logs.log("\nCOMPLETED TASKS:", "blue");
-        this.logs.log(JSON.stringify(this.completedTasks), "blue");
+        this.logs.log("\nCOMPLETED TASKS:", "cyan");
+        this.logs.log(JSON.stringify(this.completedTasks), "cyan");
+
+        this.logs.sayHello();
     }
 }

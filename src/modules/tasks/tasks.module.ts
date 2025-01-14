@@ -13,6 +13,7 @@ export class TasksModule {
 
             await this.service.addTask({
                 id: "task1",
+                // JSON file support only functions in string format
                 execute: "async () => {console.log(\"Execute task1\")}",
                 dependencies: ["task2", "task3"]
             });

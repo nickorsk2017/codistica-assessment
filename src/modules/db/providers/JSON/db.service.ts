@@ -1,7 +1,9 @@
 import {DbEntity} from './db.entity';
 
 export class DBService {
-    constructor(){}
+    constructor(){
+        
+    }
 
     getEntity(name: string): DbEntity{
         return new DbEntity(name);
