@@ -1,13 +1,13 @@
 export class Module {
 
-    constructor(){}
+  constructor() {}
 
-    run = () => {
-		this.providers.forEach(provider => {
-			const providerEntity = new provider();
-			providerEntity.run();
-		});
-	}
+  run = () => {
+    this.providers.forEach(provider => {
+      const providerEntity = new provider();
+      providerEntity.run();
+    });
+  };
 
-    providers: Array<any>;
+  providers: Array<typeof Entity.Module>;
 }

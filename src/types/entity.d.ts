@@ -1,6 +1,10 @@
 export {};
 
 declare global {
-    namespace Entity {}
+    namespace Entity {
+        class Module  {
+          run: () => void;
+        }
+    }
 }
   
