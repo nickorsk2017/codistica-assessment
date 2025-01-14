@@ -9,7 +9,8 @@
       "allowJs": true,
       "resolveJsonModule": true,
       "paths": {
-        "@modules/*": ["modules/*"]
+        "@modules/*": ["modules/*"],
+        "@assets/*": ["assets/*"]
       }
     },
     "exclude": ["node_modules"],

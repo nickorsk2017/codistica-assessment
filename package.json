@@ -22,6 +22,7 @@
         "typescript": "^5.7.3"
     },
     "_moduleAliases": {
-        "@modules": "./dist/modules"
+        "@modules": "./dist/modules",
+        "@assets": "./dist/assets"
     }
 }

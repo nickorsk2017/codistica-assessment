@@ -1,105 +1,271 @@
 import {DBModule} from '@modules/db/db.module';
 import {LogsModule} from '@modules/logs/logs.module';
 
-const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-
-function awaitFromString(handler) {
-  return new Promise((resolve, reject) => {
-    new AsyncFunction(
-      "resolve",
-      "reject",
-      `try { await ${handler}; resolve(); } catch (e) { reject(e); }`,
-    )(resolve, reject)
-  })
-}
-
 export class TasksService {
     logs: LogsModule;
     constructor(){
         this.logs = new LogsModule();
     }
 
+    dbConnection: DBModule;
+
+    tasks: Entity.Tasks = {};
     stack: Entity.Task[] = [];
     completedTasks: Array<string> = [];
+    inProgressTasks: Array<string> = [];
     wrongExecTasks: Array<string> = [];
+    circularTasks: Array<string> = [];
+    promises: Array<Promise<boolean | object>> = [];
 
-    fillStack = async (tasks: Entity.Tasks) => {
+    // Pushing tasks to stack or execution its if doesn't have dependencies
+    fillStack = () => {
+        const tasks = this.tasks;
+
         for(let key in tasks){
             const task = tasks[key];
 
             if(!task.dependencies.length){
-                await this.execTask(task);
-                this.completedTasks.push(task.id);
+                this.execTask(task);
             } else {
                 this.stack.push(task);
             }
         }  
     }
 
-
-    execTask = async (task: Entity.Task) => {
-        this.logs.log(`\nRUN TASK (${task.id}):`, 'green');
-
-        try{
-            const isAsyncFn = task.execute.indexOf('await ') > 1;
-
-            const result = isAsyncFn ? await eval(`async () => {${task.execute}}`)(): await eval(task.execute);
-
-            if(result){
-                console.log(result, 'result')
-            }
-
-            return true;
-        } catch(err){
-            this.logs.log(`\nTASK EXECUTION ERROR (${task.id}):`, 'red');
-            this.logs.log(err);
-        }
-
-        return false;
+    // deleting task from progress list
+    deleteTaskFromProgress = (taskId: string) => {
+        this.inProgressTasks = this.inProgressTasks.filter((id) => {
+            return id !== taskId;
+        })
     }
 
-    loopTasks = async (tasks: Entity.Tasks) => {
-        let interations = 0;
 
-        await this.fillStack(tasks);
-        
-        while(this.stack.length && interations < 100){
-            let nextTaskIndex;
+    // completing task
+    completeTask = (task) => {
+        this.completedTasks.push(task.id);
+        this.deleteTaskFromProgress(task.id);
+    }
 
-            const nextTask = this.stack.find((task, index) => {
-                const dependencies = task.dependencies;
 
-                const allChildTaskDone = dependencies.every(i => this.completedTasks.includes(i));
-                nextTaskIndex = index;
-                
-                return allChildTaskDone;
-            });
+    // Pushing task to list tasks with bugs
+    handlerWrongTask = (taskId: string) => {
+        this.wrongExecTasks.push(taskId);
+        // Deleting task from proggess list
+        this.deleteTaskFromProgress(taskId);
 
-            if(nextTask){
-                const result = await this.execTask(nextTask);
-                this.stack.splice(nextTaskIndex, 1);
+        // Flagging child tasks as uncompleted
+        this.stack = this.stack.filter((task) => {
+            const dependencies = task.dependencies;
+            const hasDependence = !!dependencies.includes(taskId);
 
-                if(result){
-                    this.completedTasks.push(nextTask.id);
+            if(hasDependence){
+                this.wrongExecTasks.push(task.id);
+            }
+
+            return !hasDependence
+        });
+    }
+
+    // Executing task
+    execTask = (task: Entity.Task) => {
+        this.inProgressTasks.push(task.id);
+
+        // Create promise
+        const promise = new Promise<boolean | object>((resolve) => {
+            try{
+                this.logs.log(`RUN TASK (${task.id})`, 'green');
+                const exec = eval(`${task.execute}`);
+                // This magic checks if execution has callback.
+                // This callback needs for operations with delay like Timeout
+                const hasCallback = !!exec.length;
+                  
+
+                // If task does't have callback run immediately
+                if(!hasCallback){
+                    const execResult = exec();
+
+                    this.logs.log(`TASK (${task.id}) IS DONE\n`, 'blue');
+                    execResult.then((result) => {
+                        this.completeTask(task);
+                        resolve(result);
+                    });
                 } else {
-                    this.wrongExecTasks.push(nextTask.id);
-                }
-            } else {
-                break;
-            }
-          
-          interations++;
-        }
-    }
+                    // Otherwise logic will be run inside execution of task
+                    this.logs.log(`TASK (${task.id}) HAS DELAY AND WILL PROCESS ASYNCHONOUSLY\n`, 'yellow');
 
-    logResults = () => {
-        const wrongTasks = this.stack.map((task) => {
-            return task.id
+                    const handler = (resultFromTask) => {
+                        this.completeTask(task); 
+
+                        this.logs.log(`TASK (${task.id}) IS DONE\n`, 'blue');
+                        resolve(resultFromTask);
+                    };
+
+                    exec(handler);
+                }
+    
+            } catch(err){
+                // If execution of task has error log it in  list of wrong tasks
+                this.logs.log(`\nTASK EXECUTION ERROR (${task.id}):`, 'red');
+                this.logs.log(err);
+    
+                this.handlerWrongTask(task.id);
+
+                resolve(false);
+            }
         });
 
-        if(wrongTasks.length){
+        // Push promise to list
+        this.promises.push(promise);
+    }
+
+    // Execution asynchronous tasks and clear it
+    exePromises = async () => {
+        if(!!this.promises.length){
+           await Promise.all(this.promises);
+           this.promises = [];
+        }
+    }
+
+    // Delete a task from stack
+    deleteTaskFromStack = (taskId: string) => {
+        this.stack = this.stack.filter((task) => {
+            return task.id !== taskId
+        });
+    }
+
+    // Log circular tasks
+    addToCircularTasks = (taskId: string) => {
+        if(!this.circularTasks.includes(taskId)){
+            this.deleteTaskFromStack(taskId)
+            this.circularTasks.push(taskId);
+        }
+    }
+
+    // Handler tasks with circular dependencies
+    handlerCircularTasks = (task: Entity.Task) => {
+        const dependencies = task.dependencies;
+        let hasCircular = false;
+
+        // check if task has circular dependency to itself
+        if(dependencies.includes(task.id)){
+            hasCircular = true;
+            this.addToCircularTasks(task.id);
+        }
+
+         // check if subtasks have other circular dependencies
+        if(!!dependencies.find((taskId: string) => {
+            return this.circularTasks.includes(taskId);
+         })){
+            hasCircular = true;
+            this.addToCircularTasks(task.id);
+        }
+
+        // check if subtasks have circular dependency to parent task 
+        for(const childTask of this.stack){
+            if(dependencies.includes(childTask.id)){
+
+                const dependenciesChild = childTask.dependencies;
+
+                if(dependenciesChild.includes(task.id)){
+                    hasCircular = true;
+
+                    this.addToCircularTasks(task.id);
+                    this.addToCircularTasks(childTask.id);
+                }
+
+            }
+        }
+
+        return hasCircular;
+    }
+
+    //**
+    // The loop tasks works independently of tasks execution.
+    // Look to taskB in JSON file, this task has delay and is added to completed list at the end but before parent task.
+    //  */
+    loopTasks = async () => {
+            // Pushing tasks without dependencies
+            this.fillStack();
+            
+            /** The loop is waiting while tasks in stack or progress list
+                and works until all tasks are completed and the stack is empty.
+                If task has syntax error in 'execute' field it will be ignored.
+            */
+            while((this.stack.length || this.inProgressTasks.length)){
+    
+                //Get first task with completed dependencies from stack
+                const nextTask = this.stack.find((task, index) => {
+                    // skip if the task in progress or completed 
+                    if(this.inProgressTasks.includes(task.id) || this.completedTasks.includes(task.id)){
+                        return false
+                    }
+
+                    // skip if the task has circular dependencies.
+                    const hasCircular = this.handlerCircularTasks(task);
+                    if(hasCircular){
+                        return false;
+                    }
+                
+                    const dependencies = task.dependencies;
+
+                    // skip if the task has not completed dependencies.
+                    const allChildTaskDone = dependencies.every(i => this.completedTasks.includes(i));
+                    
+                    return allChildTaskDone;
+                });
+
+    
+                // If at least one task is on the stack
+                // delete this task from stack and try execute it.
+                if(nextTask){
+                    this.deleteTaskFromStack(nextTask.id);
+                    this.execTask(nextTask);
+                } else {
+                    // Otherwise try to execute asynchronous tasks
+                    await this.exePromises();
+                }
+            }
+    }
+
+    // Run all tasks
+    runAllTasks = async () => {
+        this.logs.log("STAGE: Run all tasks \n\n", "magenta");
+
+        const tasksORM = this.dbConnection.db.getEntity('tasks');
+        const tasks = await tasksORM.get<Entity.Tasks>();
+        this.tasks = tasks;
+
+        // Processing tasks
+        await this.loopTasks();
+        this.logResults();
+    }
+
+    // Add new task to stack 
+    addTask = async (task: Entity.Task) => {
+        try {
+            const tasksORM = this.dbConnection.db.getEntity('tasks');
+            await tasksORM.write<Entity.Task>(task);
+        } catch(err){
+            this.logs.log("ERROR ", "red");
+            this.logs.log(err);
+        }
+    }
+
+    init = async () => {
+        // Connection to DB and get list tasks
+        this.dbConnection = new DBModule('JSON');
+    }
+
+    /*
+    Log result after execution 
+    */
+    logResults = () => {
+
+        this.logs.log("\nSTAGE: TASKS PROCESSED", "magenta");
+
+        if(this.circularTasks.length){
             this.logs.log("WARNING: These tasks have circular or incorrect dependencies:", 'red');
-            this.logs.log(JSON.stringify(wrongTasks), 'red');
+            this.logs.log(JSON.stringify(this.circularTasks), 'red');
         }
 
         if(this.wrongExecTasks.length){
@@ -107,20 +273,7 @@ export class TasksService {
             this.logs.log(JSON.stringify(this.wrongExecTasks), 'red');
         }
 
-        this.logs.log("\nCOMPLETED TASKS:", 'green');
-        this.logs.log(JSON.stringify(this.completedTasks), 'green');
-    }
-
-    // todo: try convert to asynchronous tasks
-    async runAllTasks(){
-        this.logs.log("STAGE: Run all tasks \n\n", 'cyan');
-
-        const connection = new DBModule('JSON');
-        const tasksORM =  connection.db.getEntity('tasks');
-
-        const tasks = await tasksORM.get();
-
-        await this.loopTasks(tasks);
-        this.logResults();
+        this.logs.log("\nCOMPLETED TASKS:", "blue");
+        this.logs.log(JSON.stringify(this.completedTasks), "blue");
     }
 }
