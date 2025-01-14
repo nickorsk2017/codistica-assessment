@@ -4,7 +4,8 @@ export class Module {
 
     run = () => {
 		this.providers.forEach(provider => {
-			provider.run()
+			const providerEntity = new provider();
+			providerEntity.run()
 		});
 	}
 

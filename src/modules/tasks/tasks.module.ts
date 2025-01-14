@@ -1,15 +1,15 @@
-import {DBModule} from '@modules/db/db.module'
+import {TasksService} from './tasks.services'
 
 export class TasksModule {
-
-    static run(){
-        const init = async () => {
-            const connection = new DBModule('JSON');
-            const tasksORM =  connection.db.getEntity('tasks');
+    service: TasksService;
     
-            const tasks = await tasksORM.get();
+    constructor(){
+        this.service = new TasksService();
+    }
 
-            console.log(tasks)
+    run(){
+        const init = async () => {
+            this.service.runAllTasks();
         }
     
         init();
