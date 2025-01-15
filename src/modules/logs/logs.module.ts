@@ -30,7 +30,7 @@ export class LogsModule  {
 
       return log;
     }
-
+    
     return null;
   }
 

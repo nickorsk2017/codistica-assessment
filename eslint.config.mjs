@@ -9,7 +9,7 @@ export default tseslint.config(
   {
     ignores: ['node_modules', 'dist'],
     rules: {
-      'no-console': 'warn',
+      'no-console': 'off',
       //* Avoid Bugs
       'semi': 'error',
       'semi-spacing': 'error',
