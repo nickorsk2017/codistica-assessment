@@ -1,14 +1,27 @@
 import {describe, expect, test} from '@jest/globals';
 import {TasksService} from './tasks.services';
+import {TasksModel} from './tasks.model';
+import {DBModule} from '../db/db.module';
+import { LogsModule} from '@modules/logs/logs.module';
 
 describe('CHECK TASKS MODULE', () => {
-  const service = new TasksService(true);
+  const service = new TasksService();
+  const tasksModel = new TasksModel();
+
+  tasksModel.dbConnection = new DBModule('JSON');
+  tasksModel.logs = new LogsModule(true);
+  service.logs = new LogsModule(true);
+
+  // disable logs in tasks module
+  tasksModel.logs.disable(true);
+  service.logs.disable(true);
+ 
 
   test('Check DB connection', async () => {
-    await service.init();
+    service.tasksModel = tasksModel;
     await service.rallbackToMock();
 
-    expect(service.dbConnection?.db).toBeDefined();
+    expect(tasksModel.dbConnection?.db).toBeDefined();
   });
 
   test('Add new task', async () => {

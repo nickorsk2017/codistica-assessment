@@ -8,6 +8,8 @@
       "outDir": "dist",
       "allowJs": true,
       "resolveJsonModule": true,
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
       "paths": {
         "@modules/*": ["modules/*"],
         "@assets/*": ["assets/*"]
