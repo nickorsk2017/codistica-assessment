@@ -13,16 +13,38 @@ const colors = {
 
 type TypeColors = typeof colors;
 
+// decorator module
+export function logs(disable?: boolean) {
+  return (target, propertyKey: string) => {
+    const logs = new LogsModule(disable);
+  
+    const getter: () => LogsModule = function () { 
+      return logs; 
+    }; 
+
+    if (typeof target === 'object') {
+      Object.defineProperty(target, propertyKey, { 
+        get: getter
+      }); 
+    }
+    
+  };
+}
+
 export class LogsModule  {
   colors = colors;
-  disable = false;
+  private disabled = false;
 
   constructor(disable?: boolean) {
-    this.disable = !!disable;
+    this.disabled = !!disable;
   }
 
+  disable = (disable: boolean) => {
+    this.disabled = disable;
+  };
+
   log(text: string, color: keyof TypeColors = 'black'): string | null {
-    if (!this.disable) {
+    if (!this.disabled) {
       const colorCode = this.colors[color] || this.colors.black;
       const reset = this.colors.reset;
       const log = `${text} ${reset}`;
