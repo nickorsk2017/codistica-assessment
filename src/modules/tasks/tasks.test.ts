@@ -4,7 +4,7 @@ import {TasksModel} from './tasks.model';
 import {DBModule} from '../db/db.module';
 import { LogsModule} from '@modules/logs/logs.module';
 
-describe('CHECK TASKS MODULE', () => {
+const initService = () => {
   const service = new TasksService();
   const tasksModel = new TasksModel();
 
@@ -15,16 +15,23 @@ describe('CHECK TASKS MODULE', () => {
   // disable logs in tasks module
   tasksModel.logs.disable(true);
   service.logs.disable(true);
- 
 
+  service.tasksModel = tasksModel;
+
+  return service;
+};
+
+describe('CHECK TASKS MODULE', () => {
+ 
   test('Check DB connection', async () => {
-    service.tasksModel = tasksModel;
+    const service = initService();
     await service.rallbackToMock();
 
-    expect(tasksModel.dbConnection?.db).toBeDefined();
+    expect(service.tasksModel.dbConnection?.db).toBeDefined();
   });
 
   test('Add new task', async () => {
+    const service = initService();
     const tasksLengthBefore = Object.keys(service.tasks).length;
 
     await service.addTask({
@@ -36,9 +43,12 @@ describe('CHECK TASKS MODULE', () => {
     const tasksLengthAfter = Object.keys(service.tasks).length;
 
     expect(tasksLengthAfter).toBeGreaterThan(tasksLengthBefore);
+
+    await service.rallbackToMock();
   });
 
   test('Run all tasks without errors', async () => {
+    const service = initService();
     await service.runAllTasks();
 
     expect(service.completedTasks.length).toBeGreaterThan(0);
@@ -48,6 +58,7 @@ describe('CHECK TASKS MODULE', () => {
 
 
   test('Run tasks with error syntax', async () => {
+    const service = initService();
     // add task with syntax error in execution
     await service.addTask({
       id: 'errorTask',
@@ -57,34 +68,89 @@ describe('CHECK TASKS MODULE', () => {
 
     await service.runAllTasks();
     expect(service.wrongExecTasks.length).toBeGreaterThan(0);
+
+    await service.rallbackToMock();
   });
 
-  test('Run tasks with circular dependencies', async () => {
-    // add task with syntax error in execution
+  test('Run tasks with circular dependencies A,B,C,D,A', async () => {
+    const service = initService();
+
     await service.addTask({
-      id: 'task_circular_1',
-      execute: 'async () => {console.log("Execute task3")}',
-      dependencies: ['task_circular_2']
+      id: 'A',
+      execute: 'async () => {console.log("Execute A")}',
+      dependencies: ['B']
     });
 
     await service.addTask({
-      id: 'task_circular_2',
-      execute: 'async () => {console.log("Execute task2")}',
-      dependencies: ['task_circular3']
+      id: 'B',
+      execute: 'async () => {console.log("Execute B")}',
+      dependencies: ['C']
     });
 
     await service.addTask({
-      id: 'task_circular3',
-      execute: 'async () => {console.log("Execute task3")}',
-      dependencies: ['task_circular_2']
+      id: 'C',
+      execute: 'async () => {console.log("Execute C")}',
+      dependencies: ['D']
+    });
+
+    await service.addTask({
+      id: 'D',
+      execute: 'async () => {console.log("Execute D")}',
+      dependencies: ['A']
     });
 
     await service.runAllTasks();
 
     expect(service.circularTasks.length).toBeGreaterThan(0);
+
+    await service.rallbackToMock();
+  });
+
+
+  test('Run tasks with circular dependencies A,A', async () => {
+    const service = initService();
+    await service.addTask({
+      id: 'A',
+      execute: 'async () => {console.log("Execute A")}',
+      dependencies: ['A']
+    });
+
+    await service.runAllTasks();
+
+    expect(service.circularTasks.length).toBeGreaterThan(0);
+
+    await service.rallbackToMock();
+  });
+
+  test('Run tasks with complex circular dependencies A,B,C,A / A,C,A', async () => {
+    const service = initService();
+    await service.addTask({
+      id: 'A',
+      execute: 'async () => {console.log("Execute A")}',
+      dependencies: ['B', 'C']
+    });
+
+    await service.addTask({
+      id: 'B',
+      execute: 'async () => {console.log("Execute B")}',
+      dependencies: ['C']
+    });
+
+    await service.addTask({
+      id: 'C',
+      execute: 'async () => {console.log("Execute C")}',
+      dependencies: ['A']
+    });
+
+    await service.runAllTasks();
+
+    expect(service.circularTasks.length).toBeGreaterThan(0);
+
+    await service.rallbackToMock();
   });
 
   test('Rollback DB', async () => {
+    const service = initService();
     await service.rallbackToMock();
   });
 

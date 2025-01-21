@@ -27,6 +27,13 @@ export class TasksModule {
       await this.service.addTask({
         id: 'task3',
         execute: 'async () => {console.log("Execute task3")}',
+        dependencies: ['task1']
+      });
+
+
+      await this.service.addTask({
+        id: 'errorTask',
+        execute: 'async () => {console.log("Execute errorTask.....',
         dependencies: []
       });
 

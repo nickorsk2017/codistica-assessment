@@ -14,6 +14,7 @@ export class TasksService {
    inProgressTasks: Array<string> = [];
    wrongExecTasks: Array<string> = [];
    circularTasks: Array<string> = [];
+   runnedTasks: Array<string> = [];
    private promises: Array<Promise<boolean | object>> = [];
 
    // Pushing tasks to stack or execution its if doesn't have dependencies
@@ -71,6 +72,7 @@ export class TasksService {
 
    // Executing task
    private execTask = (task: Entity.Task) => {
+     this.runnedTasks.push(task.id);
      this.inProgressTasks.push(task.id);
 
      // Create promise
@@ -145,41 +147,15 @@ export class TasksService {
    };
 
    // Handler tasks with circular dependencies
-   private handlerCircularTasks = (task: Entity.Task) => {
-     const dependencies = task.dependencies;
-     let hasCircular = false;
-
-     // check if task has circular dependency to itself
-     if (dependencies.includes(task.id)) {
-       hasCircular = true;
-       this.addToCircularTasks(task.id);
-     }
-
-     // check if subtasks have other circular dependencies
-     if (dependencies.find((taskId: string) => {
-       return this.circularTasks.includes(taskId);
-     })) {
-       hasCircular = true;
-       this.addToCircularTasks(task.id);
-     }
-
-     // check if subtasks have circular dependency to parent task 
-     for (const childTask of this.stack) {
-       if (dependencies.includes(childTask.id)) {
-
-         const dependenciesChild = childTask.dependencies;
-
-         if (dependenciesChild.includes(task.id)) {
-           hasCircular = true;
-
+   private handlerCircularTasks = () => { 
+     if (!this.inProgressTasks.length && !this.promises.length) {
+       const countTasks = Object.keys(this.tasks).length - this.runnedTasks.length; 
+       if (countTasks === this.stack.length) {
+         this.stack.forEach((task) => {
            this.addToCircularTasks(task.id);
-           this.addToCircularTasks(childTask.id);
-         }
-
+         });
        }
      }
-
-     return hasCircular;
    };
 
    //**
@@ -191,21 +167,15 @@ export class TasksService {
      this.fillStack();
             
      /** The loop is waiting while tasks in stack or progress list
-                and works until all tasks are completed and the stack is empty.
-                If task has syntax error in 'execute' field it will be ignored.
-            */
+        and works until all tasks are completed and the stack is empty.
+        If task has syntax error in 'execute' field it will be ignored.
+      */
      while ((this.stack.length || this.inProgressTasks.length)) {
        //Get first task with completed dependencies from stack
        const nextTask = this.stack.find((task) => {
          // skip if the task in progress or completed 
          if (this.inProgressTasks.includes(task.id) || this.completedTasks.includes(task.id)) {
            this.deleteTaskFromStack(task.id);
-           return false;
-         }
-
-         // skip if the task has circular dependencies.
-         const hasCircular = this.handlerCircularTasks(task);
-         if (hasCircular) {
            return false;
          }
                 
@@ -223,6 +193,8 @@ export class TasksService {
          this.deleteTaskFromStack(nextTask.id);
          this.execTask(nextTask);
        } else {
+         // if nextTask is undefined check circular tasks
+         this.handlerCircularTasks();
          // Otherwise try to execute asynchronous tasks
          await this.exePromises();
        }
