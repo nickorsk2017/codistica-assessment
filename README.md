@@ -37,6 +37,7 @@ Module with business logic has 3 files:
 
 - **name_module.module.ts** - contains initial settings, and runs a methods from Services. Describe your code in **run** method.
 - **name_module.service.ts** - contains business logic
+- **name_module.model.ts** - contains model logic
 - **name_module.test.ts** - unit tests for module. I used Jest
 
 I used JSON file for imitation DB (folder assets).
